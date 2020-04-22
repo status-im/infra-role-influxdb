@@ -1,0 +1,24 @@
+---
+influxdb_cont_tag: '1.7.8-alpine'
+influxdb_cont_image: 'influxdb:{{ influxdb_cont_tag }}'
+influxdb_cont_name: 'influxdb'
+influxdb_cont_vol: '/docker/{{ influxdb_cont_name }}'
+influxdb_cont_port: 8086
+
+# APT package for InfluxDB client
+influxdb_apt_package: influxdb-client
+
+# if InfluxDB should log queries
+influxdb_query_log: false
+
+# auth
+influxdb_admin_user: admin
+influxdb_admin_pass: ~
+
+# databases to create
+influxdb_databases: []
+
+# generic container settings
+cont_state: started
+cont_recreate: false
+cont_restart: false

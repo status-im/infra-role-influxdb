@@ -1,0 +1,51 @@
+---
+- name: InfluxDB | Create container folders
+  file:
+    path: '{{ influxdb_cont_vol }}/data'
+    state: directory
+
+- name: 'InfluxDB | Start container: {{ influxdb_cont_name }}'
+  docker_container:
+    name: '{{ influxdb_cont_name }}'
+    image: '{{ influxdb_cont_image }}'
+    pull: true
+    restart_policy: always
+    state: '{{ cont_state }}'
+    recreate: '{{ cont_recreate }}'
+    restart: '{{ cont_restart }}'
+    env:
+      INFLUXDB_DATA_QUERY_LOG_ENABLED: '{{ influxdb_query_log | string }}'
+      INFLUXDB_ADMIN_ENABLED: 'true'
+      INFLUXDB_ADMIN_USER: '{{ influxdb_admin_user }}'
+      INFLUXDB_ADMIN_PASSWORD: '{{ influxdb_admin_pass | mandatory }}'
+    ports:
+      - '0.0.0.0:{{ influxdb_cont_port }}:{{ influxdb_cont_port }}'
+    volumes:
+      - '{{ influxdb_cont_vol }}/data:/var/lib/influxdb'
+
+- name: InfluxDB | Install client
+  apt:
+    pkg: '{{ influxdb_apt_package }}'
+
+- name: InfluxDB | Create databases
+  command: |
+    influx -port 8086 -execute 'CREATE DATABASE {{ item.name }} \
+      {% if item.duration %}WITH [DURATION {{ item.duration }}{% endif %} \
+      {% if item.replicate %}REPLICATION y{% endif %}'
+  with_items: '{{ influxdb_databases }}'
+
+- name: InfluxDB | Consul service definition
+  include_role: name=consul-service
+  vars:
+    consul_config_name: '{{ influxdb_cont_name }}'
+    consul_services:
+      - name: '{{ influxdb_cont_name }}'
+        tags: ['metrics', 'benchmarks']
+        # we advertise the port with basic auth
+        port: '{{ influxdb_cont_port }}'
+        address: '{{ ansible_host }}'
+        checks:
+          - id: '{{ influxdb_cont_name }}-health'
+            name: InfluxDB Healthcheck
+            type: http
+            http: 'http://localhost:{{ influxdb_cont_port }}/ping?verbose=true'
